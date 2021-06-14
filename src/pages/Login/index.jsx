@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useHistory } from 'react-router';
 import { Link } from 'react-router-dom';
 import Grid from '@material-ui/core/Grid';
 import Button from '@material-ui/core/Button';
@@ -8,6 +9,7 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [publicKey, setPublicKey] = useState('');
+  const history = useHistory();
 
   return (
     <>
@@ -66,7 +68,7 @@ const Login = () => {
             />
             <Button
               fullWidth
-              onClick={() => console.log('login')}
+              onClick={() => history.push('/room')}
               disable={false}
             >
               Login
