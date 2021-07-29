@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Yama",
+  "name": "Yet Another Messaging App",
   "icons": [
     {
       "src": "favicon.ico",
