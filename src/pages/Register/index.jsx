@@ -1,22 +1,143 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Grid from '@material-ui/core/Grid';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
+import { Typography } from '@material-ui/core';
+// import useWallet from 'use-wallet';
+import Cookies from 'universal-cookie';
+import Navbar from '../../components/Navbar';
+import NoAccess from '../../components/NoAccess';
+import axios from 'axios';
+import { isMetamaskAvailable } from '../../libs/metamask';
+import { getAddress } from '../../libs/web3';
+import { bufToHex, hexToBuf } from '../../libs/util';
+import SignalProtocolStore from '../../libs/signalProtocolStore';
+import contract from '../../libs/contract';
+import { YAMA_API } from '../../configs';
+
+const cookie = new Cookies();
 
 const Register = () => {
+  const account = cookie.get('account');
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [publicKey, setPublicKey] = useState('');
+  const [publicKey, setPublicKey] = useState();
+  // metamask address
+  const [address, setAddress] = useState(account);
+  const KeyHelper = window.libsignal.KeyHelper;
+  const metamaskAvailability = isMetamaskAvailable();
+  const store = new SignalProtocolStore();
+
+
+  useEffect(() => {
+    // console.log(window.libsignal.KeyHelper);
+    // setAddress(web3.currentProvider.selectedAddress);
+    // setAddress(getAddress());
+    // setupAddress();
+  }, []);
+
+
+  const onRegister = async () => {
+    // send post request to server
+    // wait for response
+    // generate key pair
+    // using userID from registration response, register public key to blockchain 
+    // KeyHelper.generateIdentityKeyPair().then((idKeyPair) => {
+    //   // setPublicKey(dec.decode(idKeyPair.pubKey));
+    //   setPublicKey(bufToHex(idKeyPair.pubKey));
+    //   console.log('public key: ', publicKey);
+      
+    //   // setPKey(dec.decode(idKeyPair.privKey));
+    // });
+    if (username === '' || password === '' || address === '') {
+      console.log('please fill the form');
+      return;
+    }
+    try {
+      // const response = await axios.post(`${YAMA_API}/user/`, {
+      //   username: username,
+      //   password: password,
+      //   address: address
+      // });
+
+      // console.log(response.data.data)
+      // const newUserId = response.data.data.user_id;
+      const newUserId = '1';
+      console.log(newUserId);
+
+      const idKeyPair = await KeyHelper.generateIdentityKeyPair();
+      // const idKeyPairB = await KeyHelper.generateIdentityKeyPair();
+      const regId = KeyHelper.generateRegistrationId();
+      // const regIdB = KeyHelper.generateRegistrationId();
+
+      setPublicKey(bufToHex(idKeyPair.pubKey));
+      // console.log(bufToHex(idKeyPair.pubKey))
+      
+      store.saveIdentityPair(idKeyPair);
+      store.saveRegistrationId(regId);
+
+      const preKey = await KeyHelper.generatePreKey(regId);
+      // const preKeyB = await KeyHelper.generatePreKey(regIdB);
+      store.storePreKey(preKey.keyId, preKey.keyPair);
+      // console.log((preKey))
+
+      const signedPreKey = await KeyHelper.generateSignedPreKey(idKeyPair, regId);
+      // const signedPreKeyB = await KeyHelper.generateSignedPreKey(idKeyPairB, regIdB);
+      store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
+      // console.log(signedPreKey);
+
+      // const addressB = new window.libsignal.SignalProtocolAddress('b', regIdB);
+      // const sessionBuilder = new window.libsignal.SessionBuilder(store, addressB);
+
+      // await sessionBuilder.processPreKey({
+      //   registrationId: regIdB,
+      //   identityKey: idKeyPairB.pubKey,
+      //   signedPreKey: {
+      //     keyId: signedPreKeyB.keyId,
+      //     publicKey: signedPreKeyB.keyPair.pubKey,
+      //     signature: signedPreKeyB.signature,
+      //   },
+      //   preKey: {
+      //     keyId: preKeyB.keyId,
+      //     publicKey: preKeyB.keyPair.pubKey
+      //   }
+      // });
+
+      // console.log(store)
+      const transaction = await contract.createKeyBundle(
+        {
+          keyId: 1,
+          userId: newUserId,
+          idPublicKey: bufToHex(idKeyPair.pubKey),
+          preKeyPub: bufToHex(preKey.keyPair.pubKey),
+          signedPreKeyPub: bufToHex(signedPreKey.keyPair.pubKey),
+          signature: bufToHex(signedPreKey.signature)
+        },
+        address
+      );
+
+      console.log(transaction);
+      
+      
+    } catch (err) {
+      console.log('error catched')
+      console.log(err)
+    }
+  }
 
   return (
     <>
-    <Grid
+    {
+      metamaskAvailability ?
+      <Grid
       container
       direction="row"
       justify="center"
       alignItems="center"
     >
+      <Navbar/>
       <h1>Register</h1>
       <Grid
           item
@@ -46,6 +167,7 @@ const Register = () => {
               name="password"
               variant="outlined"
               required
+              type="password"
               fullWidth
               id="password"
               label="password"
@@ -54,20 +176,22 @@ const Register = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
             <TextField
-              name="pubkey"
+              name="address"
               variant="outlined"
               required
               fullWidth
-              id="pubkey"
-              label="pubkey"
+              id="address"
+              label="address"
               autoFocus
-              value={publicKey}
-              onChange={(e) => setPublicKey(e.target.value)}
+              value={address}
+              disabled
+              // onChange={(e) => setPublicKey(e.target.value)}
             />
             <Button
               fullWidth
-              onClick={() => console.log('login')}
-              disable={false}
+              variant="contained"
+              onClick={() => onRegister()}
+              disabled={username === '' || password === '' || address === ''}
             >
               Register
             </Button>
@@ -76,6 +200,9 @@ const Register = () => {
       <Link to="/login">Login</Link>
 
     </Grid>
+    : 
+    <NoAccess/>
+    }
     </>
   );
 }
