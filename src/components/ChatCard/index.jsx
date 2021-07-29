@@ -4,14 +4,17 @@ import GridList from '@material-ui/core/GridList';
 
 const ChatCard = (props) => {
   const { chats } = props;
+  // console.log(chats)
 
-  const renderChat = chats.map((item, index) => {
+  const renderChat = chats && chats.length 
+  ? chats.map((item, index) => {
     return (
       <Grid key={`chat-${index}`}>
-        {item}
+        <b>{item.sender}</b> {item.message}
       </Grid>
     )
   })
+  : (<p>Start the conversation</p>)
 
   return (
     <GridList
