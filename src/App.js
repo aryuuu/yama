@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import {
   BrowserRouter as Router,
   Route,
@@ -7,8 +8,16 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Room from './pages/Room';
+import { enableWeb3 } from './libs/web3';
+import { isMetamaskAvailable } from './libs/metamask';
 
 function App() {
+  useEffect(() => {
+    if (isMetamaskAvailable()) {
+      enableWeb3();
+    }
+  });
+  
   return (
     <Router>
       <Switch>
