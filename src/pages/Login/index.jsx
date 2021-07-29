@@ -4,15 +4,31 @@ import { Link } from 'react-router-dom';
 import Grid from '@material-ui/core/Grid';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
+import Cookies from 'universal-cookie';
+import NoAccess from '../../components/NoAccess';
+import { isMetamaskAvailable } from '../../libs/metamask';
+
+const cookie = new Cookies();
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [publicKey, setPublicKey] = useState('');
+  const [address, setAddress] = useState('');
+  const metamaskAvailability = isMetamaskAvailable();
   const history = useHistory();
+
+  const onLogin = async () => {
+    // load private key from local storage
+    // send post request containing username, password, and public key to server
+    // go to room 
+    history.push('/room');
+  }
 
   return (
     <>
+      {
+        metamaskAvailability ?
       <Grid
       container
       direction="row"
@@ -49,6 +65,7 @@ const Login = () => {
               variant="outlined"
               required
               fullWidth
+              type="password"
               id="password"
               label="password"
               autoFocus
@@ -56,20 +73,21 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
             <TextField
-              name="pubkey"
+              name="address"
               variant="outlined"
               required
               fullWidth
-              id="pubkey"
-              label="pubkey"
+              id="address"
+              label="address"
               autoFocus
-              value={publicKey}
-              onChange={(e) => setPublicKey(e.target.value)}
+              value={address}
+              // onChange={(e) => setPublicKey(e.target.value)}
             />
             <Button
               fullWidth
-              onClick={() => history.push('/room')}
-              disable={false}
+              onClick={() => onLogin()}
+              disabled={false}
+              variant="contained"
             >
               Login
             </Button>
@@ -78,6 +96,8 @@ const Login = () => {
 
         <Link to="/register">Register</Link>
       </Grid>
+      : <NoAccess/>
+      }
     </>
   );
 }
