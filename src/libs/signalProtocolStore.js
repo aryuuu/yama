@@ -28,6 +28,9 @@ class SignalProtocolStore {
   getIdentityKeyPair() {
     // const idKey = JSON.parse(this.get('identityKey'));
     const idKey = JSON.parse(this.store.getItem('identityKey'));
+    if (!idKey) {
+      return Promise.resolve(null)
+    }
     idKey.pubKey = hexToBuf(idKey.pubKey);
     idKey.privKey = hexToBuf(idKey.privKey);
     // return Promise.resolve(this.get('identityKey'));
@@ -35,7 +38,7 @@ class SignalProtocolStore {
   }
 
   getLocalRegistrationId() {
-    return Promise.resolve(this.store.getItem('registrationId'));
+    return Promise.resolve(parseInt(this.store.getItem('registrationId')));
   }
 
   put(key, value) {
@@ -104,14 +107,23 @@ class SignalProtocolStore {
     // var address = new libsignal.SignalProtocolAddress.fromString(identifier);
 
     var existing = this.store.getItem('identityKey' + identifier);
-
+    // console.log(`===existing id key====`);
+    // console.log(existing);
     // identityKey.pubKey = bufToHex(identityKey.pubKey);
     // identityKey.privKey = bufToHex(identityKey.privKey);
     // const identityKeyString = JSON.stringify(identityKey);
     // this.put('identityKey' + address.getName(), identityKeyString)
-    this.store.setItem('identityKey' + identifier, bufToHex(identityKey));
+    console.log('==identityKey==')
+    console.log(identityKey);
+    console.log(typeof identityKey)
+    console.log(bufToHex(identityKey))
+    const hexIdentityKey = bufToHex(identityKey);
+    console.log('==hex identityKey==');
+    console.log(hexIdentityKey);
+    console.log(typeof hexIdentityKey)
+    this.store.setItem('identityKey' + identifier, hexIdentityKey);
 
-    if (existing && bufToHex(identityKey) !== bufToHex(existing)) {
+    if (existing && identityKey !== existing) {
       return Promise.resolve(true);
     } else {
       return Promise.resolve(false);
@@ -121,8 +133,12 @@ class SignalProtocolStore {
 
   /* Returns a prekeypair object or undefined */
   loadPreKey(keyId) {
+    console.log('==preKey ID==');
+    console.log(keyId);
     var res = JSON.parse(this.store.getItem('25519KeypreKey' + keyId));
-    if (res !== undefined) {
+    console.log('==loaded prekey==')
+    console.log(res);
+    if (res && res.pubKey && res.privKey) {
       res = { 
         pubKey: hexToBuf(res.pubKey), 
         privKey: hexToBuf(res.privKey) 
@@ -147,9 +163,13 @@ class SignalProtocolStore {
 
   /* Returns a signed keypair object or undefined */
   loadSignedPreKey(keyId) {
+    console.log('==signed preKey ID==');
+    console.log(keyId);
     // var res = this.get('25519KeysignedKey' + keyId);
     var res = JSON.parse(this.store.getItem('25519KeysignedKey' + keyId));
-    if (res !== undefined) {
+    console.log('==loaded signed prekey==')
+    console.log(res);
+    if (res) {
       res = { 
         pubKey: hexToBuf(res.pubKey), 
         privKey: hexToBuf(res.privKey) 
@@ -168,10 +188,22 @@ class SignalProtocolStore {
   }
 
   removeSignedPreKey(keyId) {
-    return Promise.resolve(this.remove('25519KeysignedKey' + keyId));
+    // return Promise.resolve(this.remove('25519KeysignedKey' + keyId));
+    return Promise.resolve(this.store.removeItem('25519KeysignedKey' + keyId));
+  }
+
+  loadSignature(keyId) {
+    const res = this.store.getItem('25519Keysignature' + keyId);
+    return Promise.resolve(hexToBuf(res));
+  }
+
+  storeSignature(keyId, signature) {
+    const signatureHex = bufToHex(signature);
+    return Promise.resolve(this.store.setItem('25519Keysignature' + keyId, signatureHex))
   }
 
   loadSession(identifier) {
+    console.log('==loading session '+ identifier + '==');
     // const record = JSON.parse(this.store.getItem('session' + identifier));
     // record.currentRatchet.rootKey = hexToBuf(record.currentRatchet.rootKey);
     // record.currentRatchet.lastRemoteEphemeralKey = hexToBuf(record.currentRatchet.lastRemoteEphemeralKey);
@@ -180,9 +212,15 @@ class SignalProtocolStore {
     // record.indexInfo.remoteIdentityKey = hexToBuf(record.indexInfo.remoteIdentityKey);
     // record.indexInfo.baseKey = hexToBuf(record.indexInfo.baseKey);
     // record.pendingPreKey.baseKey = hexToBuf(record.pendingPreKey.baseKey);
+    const res = this.store.getItem('session' + identifier);
+    // console.log('==res==');
+    // console.log(res);
+    if (!res) {
+      return Promise.resolve(undefined);
+    }
 
-
-    return Promise.resolve(this.get('session' + identifier));
+    // return Promise.resolve(this.get('session' + identifier));
+    return Promise.resolve(this.store.getItem('session' + identifier));
   }
 
   storeSession(identifier, record) {
@@ -190,7 +228,8 @@ class SignalProtocolStore {
     // console.log('record');
     // console.log(record);
     // console.log(typeof record)
-    return Promise.resolve(this.put('session' + identifier, record));
+    // return Promise.resolve(this.put('session' + identifier, record));
+    return Promise.resolve(this.store.setItem('session' + identifier, record));
   }
 
   removeSession(identifier) {

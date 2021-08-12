@@ -1,8 +1,13 @@
 pragma solidity ^0.5.0;
 
 contract KeyRegistration {
+    struct PreKey {
+        string preKeyId;
+        string preKeyPub;
+        bool isUsed;
+    }
     struct KeyBundle {
-        uint256 keyId;
+        string keyId;
         string userId;
         string idPublicKey;
         string preKeyPub;
@@ -14,13 +19,13 @@ contract KeyRegistration {
 
     event KeyBundleRegistered(
         address indexed ownerAddress,
-        uint256 indexed keyId,
+        string indexed keyId,
         string indexed userId
     );
     event KeyBundleRevoked(address indexed ownerAddress);
 
     function createKeyBundle(
-        uint256 keyId,
+        string memory keyId,
         string memory userId,
         string memory idPublicKey,
         string memory preKeyPub,
@@ -46,7 +51,7 @@ contract KeyRegistration {
         public
         view
         returns (
-            uint256 keyId,
+            string memory keyId,
             string memory userId,
             string memory idPublicKey,
             string memory preKeyPub,

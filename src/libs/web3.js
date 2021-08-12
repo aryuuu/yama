@@ -38,17 +38,8 @@ export const verify = async (sign, address) => {
 export const getAddress = async () => {
   const provider = new Web3.providers.HttpProvider(ETH_NETWORK);
   const web3 = new Web3(provider);
-  // console.log(web3.eth)
-  // console.log(web3.eth.currentProvider)
-  // console.log(web3.eth.currentProvider.selectedAddress)
-  
-
-  // return web3.currentProvider.selectedAddress;
 
   const addresses = await web3.eth.getAccounts();
-  // const address = web3.eth
-
-  // console.log(addresses);
 
   return addresses[0];
 }

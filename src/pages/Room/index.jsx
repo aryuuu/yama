@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useHistory } from 'react-router';
 import clsx from 'clsx';
 import Grid from '@material-ui/core/Grid';
-import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
-import InboxIcon from '@material-ui/icons/MoveToInbox';
+// import InboxIcon from '@material-ui/icons/MoveToInbox';
 import MailIcon from '@material-ui/icons/Mail';
 import IconButton from '@material-ui/core/IconButton';
 import Drawer from '@material-ui/core/Drawer';
@@ -26,10 +26,12 @@ import { isMetamaskAvailable } from '../../libs/metamask';
 import socket from '../../libs/socket';
 import contract from '../../libs/contract';
 import SignalProtocolStore from '../../libs/signalProtocolStore';
+import { hexToBuf } from '../../libs/util';
 
 const libsignal = window.libsignal;
 const cookie = new Cookies();
 const store = new SignalProtocolStore();
+const enc = new TextDecoder("utf-8");
 
 const Room = () => {
   const dummyChat = {
@@ -90,29 +92,98 @@ const Room = () => {
     'Dwight': [],
   }
 
+  const history = useHistory();
   const [openDrawer, setOpenDrawer] = useState(true);
   const [currentRoom, setCurrentRoom] = useState('');
   const [username, setUsername] = useState('');
   const [message, setMessage] = useState('');
   const [chats, setChats] = useState(dummyChat);
   const [keyBundles, setKeyBundles] = useState({});
-  
   const [sessions, setSessions] = useState({});
 
   const styles = useStyles();
-
   const metamaskAvailability = isMetamaskAvailable();
-
   const account = cookie.get('account');
   
   useEffect(() => {
+    console.log('about to connect to yama-server');
+    // console.log(`account: ${account}`)
     socket.auth = { username: account };
-    socket.connect();
-  }, []);
+    socket.connect(() => {
+      console.log(socket);
+    });
 
-  // useEffect(() => {
-  //   console.log(chats);
-  // }, [chats]);
+
+    socket.onAny((event) => {
+      console.log(`got event: ${event}`);
+      // console.log(args)
+    });
+
+    socket.on('search user', ({ username, isExist}) => {
+      // search user in chats state
+      // if user never texted the recipient, create a new signal session
+      // using the signal store interface (local storage based)
+      if (isExist) {
+        if (!chats[username]) {
+          setChats({
+            ...chats,
+            [username]: []
+          });
+        }
+        setCurrentRoom(username);
+      } else {
+        console.log(`user ${username} does not exist`);
+      }
+    })
+    // console.log(socket);
+    socket.on('private message', async ({ content, from }) => {
+      console.log('received private message');
+      console.log(content);
+      console.log(from);
+      const room = chats[from];
+  
+      const newMessage = {
+        sender: from
+      };
+      const address = new libsignal.SignalProtocolAddress(from, 1);
+      const sessionCipher = new libsignal.SessionCipher(store, address);
+      // console.log(`room: ${room}`);
+      // decrypt message 
+      // session does not exist, establish a session first
+      const session = await store.loadSession(address.toString())
+      if (content.type === 3 && !session) {
+        
+        try {
+          const plaintext = await sessionCipher.decryptPreKeyWhisperMessage(content.body, 'binary');
+          newMessage.message = enc.decode(plaintext);
+          console.log('==plaintext==');
+          console.log(newMessage.message)
+        } catch (error) {
+          console.log(error);
+        }
+      } else {
+        try {
+          const plaintext = await sessionCipher.decryptWhisperMessage(content.body, 'binary');
+          newMessage.message = enc.decode(plaintext);
+          console.log('==plaintext==');
+          console.log(newMessage.message)
+        } catch (error) {
+          console.log(error);
+        }
+      }
+      
+      if (!room) {
+        chats[from] = [];
+      }
+  
+      chats[from].push(newMessage);
+      setChats({
+        ...chats,
+        [from]: [...chats[from]]
+      });
+  
+    });
+  }, []);
 
   const handleDrawerOpen = () => {
     setOpenDrawer(true);
@@ -125,38 +196,62 @@ const Room = () => {
   const handleChangeRoom = async (room) => {
     console.log(`moved to room: ${room}`);
     setCurrentRoom(room);
+    history.push(`/room/${room}`)
+    const address = new libsignal.SignalProtocolAddress(room, 1);
 
-    if (!keyBundles[room]) {
+    const session = await store.loadSession(address.toString());
+    if (!keyBundles[room] && !session) {
       const keyBundle = await contract.getKeyBundle(room);
+      console.log('keyBundle');
+      console.log(keyBundle);
       setKeyBundles({
         ...keyBundles,
         [room]: keyBundle
       });
       // create new signal address for target
-      const address = new libsignal.SignalProtocolAddress(room, 1);
+      
       // create new signal session
       const sessionBuilder = new libsignal.SessionBuilder(store, address);
 
       try {
+        console.log('try builing signal session');
+        const keyId = parseInt(keyBundle.keyId);
+        const idPublicKey = hexToBuf(keyBundle.idPublicKey);
+        const signedPreKeyPub = hexToBuf(keyBundle.signedPreKeyPub);
+        const signature = hexToBuf(keyBundle.signature);
+        const preKeyPub = hexToBuf(keyBundle.preKeyPub);
+
+        console.log(`keyId : ${keyId}`);
+        console.log(keyId);
+        console.log(`identityKey : ${idPublicKey}`);
+        console.log(idPublicKey);
+        console.log(`signedPreKeyPub : ${signedPreKeyPub}`);
+        console.log(signedPreKeyPub);
+        console.log(`signature : ${signature}`);
+        console.log(signature);
+        console.log(`preKeyPub : ${preKeyPub}`);
+        console.log(preKeyPub);
+
         await sessionBuilder.processPreKey({
-          registrationId: '',
-          identityKey: 1,
+          registrationId: keyId,
+          identityKey: idPublicKey,
           signedPreKey: {
             keyId: 1,
-            publicKey: 1,
-            signature: 1,
+            publicKey: signedPreKeyPub,
+            signature: signature,
           },
           preKey: {
-            keyId: 1,
-            publicKey: 1,
+            keyId: keyId,
+            publicKey: preKeyPub,
           }
         });
 
+        console.log(`signal session with ${room} built`);
       } catch (err) {
         console.log(err);
       }
       console.log('fetching key bundle for this room');
-      console.log(keyBundle);
+      // console.log(keyBundle);
     }
   }
 
@@ -166,28 +261,44 @@ const Room = () => {
     if (content !== '') {
       // encrypt message using signal session, previously built when user first sending
       // or receiving message from another end
+      // console.log('currentRoom session: ');
+      // console.log(sessions[currentRoom]);
+      // change this to signalstore session
       if (sessions[currentRoom] === undefined) {
         console.log('session undefined');
         console.log('creating new session');
 
-        const sessionCipher = new libsignal.SessionCipher(store, '1');
+        const address = new libsignal.SignalProtocolAddress(currentRoom, 1);
+
+        const sessionCipher = new libsignal.SessionCipher(store, address);
         setSessions({
           ...sessions,
           [currentRoom]: sessionCipher,
         })
-        const ciphertext = await sessionCipher.encrypt(content);
         
-        socket.emit("private message", {
-          content: ciphertext,
-          to: currentRoom
-        });
+        try {
+          const ciphertext = await sessionCipher.encrypt(content);
+          console.log(ciphertext);
+          socket.emit("private message", {
+            content: ciphertext,
+            to: currentRoom
+          });
+        } catch (err) {
+          console.log(err);
+        }
+        
       } else {
-        const ciphertext = await sessions[currentRoom].encrypt(content);
+        try {
+          const ciphertext = await sessions[currentRoom].encrypt(content);
+  
+          socket.emit("private message", {
+            content: ciphertext,
+            to: currentRoom
+          });
 
-        socket.emit("private message", {
-          content: ciphertext,
-          to: currentRoom
-        });
+        } catch (err) {
+          console.log(err);
+        }
       }
 
       const newMessage = {
@@ -206,6 +317,7 @@ const Room = () => {
   const handleSearch = () => {
     let query = username.trim();
     if (query !== '') {
+      console.log(`searching user ${query}`);
       socket.emit('search user', {
         username: query
       });
@@ -213,78 +325,6 @@ const Room = () => {
 
     setUsername('');
   }
-
-  socket.onAny((event) => {
-    console.log(`got event: ${event}`);
-    // console.log(args)
-  })
-
-  socket.on('search user', ({ username, isExist}) => {
-    // search user in chats state
-    // if user never texted the recipient, create a new signal session
-    // using the signal store interface (local storage based)
-    if (isExist) {
-      if (!chats[username]) {
-        setChats({
-          ...chats,
-          [username]: []
-        });
-      }
-      setCurrentRoom(username);
-    } else {
-      console.log(`user ${username} does not exist`);
-    }
-  })
-
-  socket.on('private message', async ({ content, from }) => {
-    console.log('received private message');
-    console.log(content);
-    console.log(from);
-    const room = chats[from];
-
-    const newMessage = {
-      sender: from
-    };
-    const address = new libsignal.SignalProtocolAddress(from, 1);
-    // console.log(`room: ${room}`);
-    // decrypt message 
-    // session does not exist, establish a session first
-    if (sessions[from] === undefined) {
-      const sessionCipher = new libsignal.SessionCipher(store, address);
-      const plaintext = await sessionCipher.decryptPreKeyWisperMessage(content);
-      newMessage.message = plaintext;
-    } else {
-      const plaintext = await sessions[from].decryptWhisperMessage(content, address);
-      newMessage.message = plaintext;
-    }
-    
-    // const newMessage = {
-    //   sender: from,
-    //   message: content
-    // }
-
-    if (!room) {
-      chats[from] = [];
-    }
-
-    chats[from].push(newMessage);
-    setChats({
-      ...chats,
-      [from]: [...chats[from]]
-    });
-
-    // setCurrentRoom(from);
-
-    // if (room) {
-    //   chats[from].push(newMessage);
-    //   setChats({
-    //     ...chats,
-    //     [from]: [...chats[from]]
-    //   });
-    // } else {
-    //   chats[from] = []
-    // }
-  });
 
   return (
     <>
@@ -366,7 +406,8 @@ const Room = () => {
         {['Fry', 'Groundskeeper Willie', 'Hermes', 'Iruka', 'Jon'].map((text, index) => (
             <ListItem button key={index} onClick={() => { handleChangeRoom(text) }}>
               <ListItemIcon><MailIcon /></ListItemIcon>
-              <ListItemText primary={text} />
+              {/* <ListItemText textOverflow="ellipsis" primary={text} /> */}
+              <Typography>{text}</Typography>
             </ListItem>
           ))}
         </List>

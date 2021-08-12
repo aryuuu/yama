@@ -25,6 +25,7 @@ function App() {
         <Route exact path="/login" component={Login} />
         <Route exact path="/register" component={Register} />
         <Route exact path="/room" component={Room} />
+        <Route exact path="/room/:id" component={Room} />
       </Switch>
     </Router>
   );
