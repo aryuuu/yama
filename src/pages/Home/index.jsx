@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router';
-import { Link } from 'react-router-dom';
 import { 
   Grid,
   Modal,
   LinearProgress,
 } from '@material-ui/core';
+import TextField from '@material-ui/core/TextField';
 import { 
   useWallet, 
   UseWalletProvider 
@@ -15,6 +15,7 @@ import { CHAIN_ID } from '../../configs';
 import { bufToHex } from '../../libs/util';
 import SignalProtocolStore from '../../libs/signalProtocolStore';
 import contract from '../../libs/contract';
+import { sign } from '../../libs/web3';
 import { useStyles } from './style';
 
 const cookie = new Cookies();
@@ -26,6 +27,10 @@ const Home = () => {
   const [isRegistered, setIsRegistered] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [privateKey, setPrivateKey] = useState('');
+  const [showLoading, setShowLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+
 
   const KeyHelper = window.libsignal.KeyHelper;
   const store = new SignalProtocolStore();
@@ -43,8 +48,17 @@ const Home = () => {
       handleLogin();
       // history.push('/room');
     }
-    handleRegister();
+    // handleRegister();
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      console.log('user logged in, time to register key bundle');
+      setShowLoading(false);
+      setShowForm(true);
+      // handleRegister();
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
     console.log(`isLoggedIn: ${isLoggedIn}`);
@@ -87,7 +101,8 @@ const Home = () => {
   }
 
   const handleRegister = async () => {
-    console.log('==register==')
+    setShowLoading(true);
+    console.log('==register==');
     const address = cookie.get('account');
     console.log(`==account: ${address}==`);
     
@@ -131,18 +146,18 @@ const Home = () => {
 
       const preKey = await KeyHelper.generatePreKey(regId);
       store.storePreKey(preKey.keyId, preKey.keyPair);
+      const keyBundle = {
+        keyId: `${regId}`,
+        userId: address,
+        idPublicKey: bufToHex(idKey.pubKey),
+        preKeyPub: bufToHex(preKey.keyPair.pubKey),
+        signedPreKeyPub: bufToHex(signedKeyPair.pubKey),
+        signature: bufToHex(signature),
+      }
+
+      keyBundle.userSign = await sign(keyBundle, privateKey);
   
-      const transaction = await contract.createKeyBundle(
-        {
-          keyId: `${regId}`,
-          userId: address,
-          idPublicKey: bufToHex(idKey.pubKey),
-          preKeyPub: bufToHex(preKey.keyPair.pubKey),
-          signedPreKeyPub: bufToHex(signedKeyPair.pubKey),
-          signature: bufToHex(signature)
-        },
-        address
-      );
+      const transaction = await contract.createKeyBundle(keyBundle, address);
 
       console.log(transaction);
       setIsRegistered(true);
@@ -174,7 +189,26 @@ const Home = () => {
           <div className={styles.paper}>
             <h2 id="modal-title">Please wait</h2>
             <p id="modal-description">{loadingMessage}</p>
-            <LinearProgress/>
+            {
+              showForm
+              ? <TextField
+                  id="private-key"
+                  label="private key"
+                  value={privateKey}
+                  onChange={e => setPrivateKey(e.target.value)}
+                  onKeyPress={e => {
+                    if (e.key === 'Enter') {
+                      handleRegister();
+                    }
+                  }}
+                />
+              : ''
+            }
+            {
+              showLoading
+               ? <LinearProgress/>
+               : ''
+            }
           </div>
         </Modal>
         {/* <Link to="/login">Login</Link>

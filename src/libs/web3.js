@@ -15,12 +15,12 @@ export const enableWeb3 = async () => {
   return true;
 }
 
-export const sign = async (payload) => {
+export const sign = async (payload, privateKey) => {
   const provider = new Web3.providers.HttpProvider(ETH_NETWORK);
   const web3 = new Web3(provider);
 
   const msg = JSON.stringify(payload);
-  const sign = await web3.eth.accounts.sign(msg, PRIVATE_KEY);
+  const sign = await web3.eth.accounts.sign(msg, privateKey);
 
   return JSON.stringify(sign);
 }
@@ -43,3 +43,4 @@ export const getAddress = async () => {
 
   return addresses[0];
 }
+

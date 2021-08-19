@@ -11,3 +11,10 @@ export const hexToBuf = (hex) => {
   const typedArray = new Uint8Array(hex.match(/[\da-f]{2}/gi).map((h) => parseInt(h, 16)))
   return typedArray.buffer
 }
+
+export const createRoomName = (a, b) => {
+  if (a < b) {
+    return a + b;
+  }
+  return b + a;
+}

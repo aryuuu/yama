@@ -23,10 +23,11 @@ import { useStyles } from './style';
 import NoAccess from '../../components/NoAccess';
 import ChatCard from '../../components/ChatCard';
 import { isMetamaskAvailable } from '../../libs/metamask';
+import { verify } from '../../libs/web3';
 import socket from '../../libs/socket';
 import contract from '../../libs/contract';
 import SignalProtocolStore from '../../libs/signalProtocolStore';
-import { hexToBuf } from '../../libs/util';
+import { hexToBuf, createRoomName } from '../../libs/util';
 
 const libsignal = window.libsignal;
 const cookie = new Cookies();
@@ -35,7 +36,10 @@ const enc = new TextDecoder("utf-8");
 
 const Room = () => {
   const dummyChat = {
-    'Amy': [
+    'Amy': {
+      room_id: 'AmyMe',
+      display_name: 'Amy Wong',
+      messages:[
       {
         sender: 'me',
         message: 'suh dude'
@@ -52,8 +56,11 @@ const Room = () => {
         sender: 'Amy',
         message: 'sorry i have a boyfriend'
       },
-    ],
-    'Bender': [
+    ]},
+    'Bender': {
+      room_id: 'BenderMe',
+      display_name: 'Bender',
+      messages:[
       {
         sender: 'me',
         message: 'suh dude'
@@ -70,8 +77,11 @@ const Room = () => {
         sender: 'Bender',
         message: 'sorry i have a boyfriend'
       },
-    ],
-    'Cubert': [
+    ]},
+    'Cubert': {
+      room_id: 'CubertMe',
+      display_name: 'Cubert',
+      messages:[
       {
         sender: 'me',
         message: 'suh dude'
@@ -88,8 +98,8 @@ const Room = () => {
         sender: 'Cubert',
         message: 'sorry i have a boyfriend'
       },
-    ],
-    'Dwight': [],
+    ]},
+    
   }
 
   const history = useHistory();
@@ -119,15 +129,20 @@ const Room = () => {
       // console.log(args)
     });
 
-    socket.on('search user', ({ username, isExist}) => {
+    socket.on('search user', (res) => {
+      console.log(res)
       // search user in chats state
       // if user never texted the recipient, create a new signal session
       // using the signal store interface (local storage based)
-      if (isExist) {
-        if (!chats[username]) {
+      if (res.isExist) {
+        if (!chats[res.username]) {
           setChats({
             ...chats,
-            [username]: []
+            [res.username]: {
+              room_id: createRoomName(res.username, account),
+              display_name: res.display_name ? res.display_name : res.username,
+              messages: []
+            }
           });
         }
         setCurrentRoom(username);
@@ -173,13 +188,23 @@ const Room = () => {
       }
       
       if (!room) {
-        chats[from] = [];
+        chats[from] = {
+          room_id: createRoomName(from, account),
+          display_name: from,
+          messages: []
+        };
       }
-  
-      chats[from].push(newMessage);
+      console.log('==chats[from].messages before pushing==');
+      console.log(chats[from].messages);
+      chats[from].messages.push(newMessage);
+      console.log('==chats[from].messages==');
+      console.log(chats[from].messages);
       setChats({
         ...chats,
-        [from]: [...chats[from]]
+        [from]: {
+          ...(chats[from]),
+          messages: [...(chats[from].messages)]
+        }
       });
   
     });
@@ -204,11 +229,18 @@ const Room = () => {
       const keyBundle = await contract.getKeyBundle(room);
       console.log('keyBundle');
       console.log(keyBundle);
+
+      console.log('==verify key bundle==');
+      const isValid = await verify(keyBundle.userSign, room);
+      if (!isValid) {
+        console.log('==invalid key bundle==');
+        return
+      }
+      
       setKeyBundles({
         ...keyBundles,
         [room]: keyBundle
       });
-      // create new signal address for target
       
       // create new signal session
       const sessionBuilder = new libsignal.SessionBuilder(store, address);
@@ -281,7 +313,8 @@ const Room = () => {
           console.log(ciphertext);
           socket.emit("private message", {
             content: ciphertext,
-            to: currentRoom
+            to: currentRoom,
+            room_id: chats[currentRoom].room_id
           });
         } catch (err) {
           console.log(err);
@@ -293,7 +326,8 @@ const Room = () => {
   
           socket.emit("private message", {
             content: ciphertext,
-            to: currentRoom
+            to: currentRoom,
+            room_id: chats[currentRoom].room_id
           });
 
         } catch (err) {
@@ -305,10 +339,17 @@ const Room = () => {
         sender: 'me',
         message: content
       }
-      chats[currentRoom].push(newMessage)
+      console.log('==chats[currentRoom].messages before pushing==');
+      console.log(chats[currentRoom].messages);
+      chats[currentRoom].messages.push(newMessage);
+      console.log('==chats[currentRoom].messages==');
+      console.log(chats[currentRoom].messages);
       setChats({
         ...chats,
-        [currentRoom]: [...chats[currentRoom]]
+        [currentRoom]: {
+          ...(chats[currentRoom]),
+          messages: [...(chats[currentRoom].messages)]
+        }
       });
     }
     setMessage('');
@@ -397,7 +438,7 @@ const Room = () => {
               } : {}}
             >
               <ListItemIcon><MailIcon /></ListItemIcon>
-              <ListItemText primary={roomName} />
+              <ListItemText primary={chats[roomName].display_name} />
             </ListItem>
           ))}
         </List>
@@ -423,7 +464,7 @@ const Room = () => {
             currentRoom
             ? (
               <>
-                <ChatCard chats={chats[currentRoom]}/>
+                <ChatCard chats={chats[currentRoom].messages}/>
                 <TextField
                   className={styles.form}
                   name="Message"

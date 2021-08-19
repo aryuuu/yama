@@ -22,6 +22,7 @@ const createKeyBundle = async (data, address) => {
     data.preKeyPub,
     data.signedPreKeyPub,
     data.signature,
+    data.userSign,
     {
       from: address
     }

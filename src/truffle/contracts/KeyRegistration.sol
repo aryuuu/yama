@@ -1,18 +1,20 @@
 pragma solidity ^0.5.0;
 
 contract KeyRegistration {
-    struct PreKey {
-        string preKeyId;
-        string preKeyPub;
-        bool isUsed;
-    }
+    // struct PreKey {
+    //     string preKeyId;
+    //     string preKeyPub;
+    //     bool isUsed;
+    // }
     struct KeyBundle {
         string keyId;
         string userId;
         string idPublicKey;
+        // PreKey[] preKeys;
         string preKeyPub;
         string signedPreKeyPub;
         string signature;
+        string userSign;
     }
 
     mapping(address => KeyBundle) public keyBundles;
@@ -30,7 +32,8 @@ contract KeyRegistration {
         string memory idPublicKey,
         string memory preKeyPub,
         string memory signedPreKeyPub,
-        string memory signature
+        string memory signature,
+        string memory userSign
     ) public {
         // uint256 keyBundleId = keyBundles.length;
 
@@ -40,7 +43,8 @@ contract KeyRegistration {
             idPublicKey: idPublicKey,
             preKeyPub: preKeyPub,
             signedPreKeyPub: signedPreKeyPub,
-            signature: signature
+            signature: signature,
+            userSign: userSign
         });
 
         emit KeyBundleRegistered(msg.sender, keyId, userId);
@@ -56,7 +60,8 @@ contract KeyRegistration {
             string memory idPublicKey,
             string memory preKeyPub,
             string memory signedPreKeyPub,
-            string memory signature
+            string memory signature,
+            string memory userSign
         )
     {
         KeyBundle storage keyBundle = keyBundles[owner];
@@ -67,5 +72,14 @@ contract KeyRegistration {
         preKeyPub = keyBundle.preKeyPub;
         signedPreKeyPub = keyBundle.signedPreKeyPub;
         signature = keyBundle.signature;
+        userSign = keyBundle.userSign;
+    }
+
+    function isRegistered(address owner) public view returns (bool) {
+        bytes memory temp = bytes(keyBundles[owner].keyId);
+        if (temp.length == 0) {
+            return false;
+        }
+        return true;
     }
 }
