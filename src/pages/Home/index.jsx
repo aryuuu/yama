@@ -194,6 +194,7 @@ const Home = () => {
               ? <TextField
                   id="private-key"
                   label="private key"
+                  type="password"
                   value={privateKey}
                   onChange={e => setPrivateKey(e.target.value)}
                   onKeyPress={e => {
@@ -211,9 +212,6 @@ const Home = () => {
             }
           </div>
         </Modal>
-        {/* <Link to="/login">Login</Link>
-        <br />
-        <Link to="/register">Register</Link> */}
       </Grid>
     </>
   );
