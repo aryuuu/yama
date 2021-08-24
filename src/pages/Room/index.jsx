@@ -184,6 +184,14 @@ const Room = () => {
           console.log(newMessage.message)
         } catch (error) {
           console.log(error);
+          try {
+            const plaintext = await sessionCipher.decryptPreKeyWhisperMessage(content.body, 'binary');
+            newMessage.message = enc.decode(plaintext);
+            console.log('==plaintext==');
+            console.log(newMessage.message)
+          } catch (error) {
+            console.log(error);
+          }
         }
       }
       
