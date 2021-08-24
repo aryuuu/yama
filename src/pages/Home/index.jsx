@@ -78,6 +78,7 @@ const Home = () => {
     if ((!account || account === 'null') && wallet.status === 'connected') {
       cookie.set('account', wallet.account);
       setIsLoggedIn(true);
+      setLoadingMessage('Wallet logged in...');
     }
   }, [wallet.account, wallet.status]);
 
@@ -86,7 +87,7 @@ const Home = () => {
       setLoadingMessage('Logging into ethereum account...');
       await wallet.connect('provided');
       console.log(wallet.status)
-      cookie.set('account', wallet.account);
+      // cookie.set('account', wallet.account);
     } catch (error) {
       console.log('error connecting wallet');
       console.log(error);
