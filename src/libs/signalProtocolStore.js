@@ -113,14 +113,14 @@ class SignalProtocolStore {
     // identityKey.privKey = bufToHex(identityKey.privKey);
     // const identityKeyString = JSON.stringify(identityKey);
     // this.put('identityKey' + address.getName(), identityKeyString)
-    console.log('==identityKey==')
-    console.log(identityKey);
-    console.log(typeof identityKey)
-    console.log(bufToHex(identityKey))
+    // console.log('==identityKey==')
+    // console.log(identityKey);
+    // console.log(typeof identityKey)
+    // console.log(bufToHex(identityKey))
     const hexIdentityKey = bufToHex(identityKey);
-    console.log('==hex identityKey==');
-    console.log(hexIdentityKey);
-    console.log(typeof hexIdentityKey)
+    // console.log('==hex identityKey==');
+    // console.log(hexIdentityKey);
+    // console.log(typeof hexIdentityKey)
     this.store.setItem('identityKey' + identifier, hexIdentityKey);
 
     if (existing && identityKey !== existing) {
@@ -133,11 +133,11 @@ class SignalProtocolStore {
 
   /* Returns a prekeypair object or undefined */
   loadPreKey(keyId) {
-    console.log('==preKey ID==');
-    console.log(keyId);
+    // console.log('==preKey ID==');
+    // console.log(keyId);
     var res = JSON.parse(this.store.getItem('25519KeypreKey' + keyId));
-    console.log('==loaded prekey==')
-    console.log(res);
+    // console.log('==loaded prekey==')
+    // console.log(res);
     if (res && res.pubKey && res.privKey) {
       res = { 
         pubKey: hexToBuf(res.pubKey), 
@@ -163,12 +163,12 @@ class SignalProtocolStore {
 
   /* Returns a signed keypair object or undefined */
   loadSignedPreKey(keyId) {
-    console.log('==signed preKey ID==');
-    console.log(keyId);
+    // console.log('==signed preKey ID==');
+    // console.log(keyId);
     // var res = this.get('25519KeysignedKey' + keyId);
     var res = JSON.parse(this.store.getItem('25519KeysignedKey' + keyId));
-    console.log('==loaded signed prekey==')
-    console.log(res);
+    // console.log('==loaded signed prekey==')
+    // console.log(res);
     if (res) {
       res = { 
         pubKey: hexToBuf(res.pubKey), 
@@ -203,7 +203,7 @@ class SignalProtocolStore {
   }
 
   loadSession(identifier) {
-    console.log('==loading session '+ identifier + '==');
+    // console.log('==loading session '+ identifier + '==');
     // const record = JSON.parse(this.store.getItem('session' + identifier));
     // record.currentRatchet.rootKey = hexToBuf(record.currentRatchet.rootKey);
     // record.currentRatchet.lastRemoteEphemeralKey = hexToBuf(record.currentRatchet.lastRemoteEphemeralKey);

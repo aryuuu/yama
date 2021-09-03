@@ -1,6 +1,6 @@
 import { makeStyles } from '@material-ui/core';
 
-const drawerWidth = 240;
+const drawerWidth = 460;
 
 export const useStyles = makeStyles((theme) => ({
   root: {
@@ -59,5 +59,24 @@ export const useStyles = makeStyles((theme) => ({
   },
   searchBar: {
     background: 'white'
+  },
+  chat: {
+    height: '80vh',
+    // marginRight: theme.spacing(3),
+    marginLeft: theme.spacing(5),
+    // padding: theme.spacing(3),
+    overflow: 'hidden'
+  },
+  form: {
+    marginTop: theme.spacing(3),
+    width: '70%'
+  },
+  uploadIcon: {
+    marginTop: theme.spacing(3),
+    marginRight: theme.spacing(2)
+  },
+  sendIcon: {
+    marginTop: theme.spacing(3),
+    marginLeft: theme.spacing(2)
   }
 }));

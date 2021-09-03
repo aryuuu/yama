@@ -1,23 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router';
+import { useDispatch, useSelector } from 'react-redux';
 import clsx from 'clsx';
 import Grid from '@material-ui/core/Grid';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
-// import InboxIcon from '@material-ui/icons/MoveToInbox';
 import MailIcon from '@material-ui/icons/Mail';
 import IconButton from '@material-ui/core/IconButton';
+import AddIcon from '@material-ui/icons/Add';
 import Drawer from '@material-ui/core/Drawer';
 import AppBar from '@material-ui/core/AppBar';
 import Divider from '@material-ui/core/Divider';
+import Tooltip from '@material-ui/core/Tooltip';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import Toolbar from '@material-ui/core/Toolbar';
 import MenuIcon from '@material-ui/icons/Menu';
+import DeleteIcon from '@material-ui/icons/Delete';
+import SendIcon from '@material-ui/icons/Send';
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import CssBaseline from '@material-ui/core/CssBaseline';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Cookies from 'universal-cookie';
 import { useStyles } from './style';
 import NoAccess from '../../components/NoAccess';
@@ -28,6 +34,7 @@ import socket from '../../libs/socket';
 import contract from '../../libs/contract';
 import SignalProtocolStore from '../../libs/signalProtocolStore';
 import { hexToBuf, createRoomName } from '../../libs/util';
+import { ACTIONS as CHAT_ACTIONS } from '../../redux/reducers/chatReducer';
 
 const libsignal = window.libsignal;
 const cookie = new Cookies();
@@ -103,29 +110,33 @@ const Room = () => {
   }
 
   const history = useHistory();
-  const [openDrawer, setOpenDrawer] = useState(true);
+  const dispatch = useDispatch();
+  const [openDrawer, setOpenDrawer] = useState(false);
   const [currentRoom, setCurrentRoom] = useState('');
   const [username, setUsername] = useState('');
   const [message, setMessage] = useState('');
-  const [chats, setChats] = useState(dummyChat);
+  const [fileBase64, setFileBase64] = useState('');
+  const [filename, setFilename] = useState('');
+  const [chats, setChats] = useState({});
   const [keyBundles, setKeyBundles] = useState({});
   const [sessions, setSessions] = useState({});
 
   const styles = useStyles();
   const metamaskAvailability = isMetamaskAvailable();
   const account = cookie.get('account');
+  const { display_name } = useSelector(state => state.userReducer);
   
   useEffect(() => {
     console.log('about to connect to yama-server');
     // console.log(`account: ${account}`)
-    socket.auth = { username: account };
+    socket.auth = { username: account, display_name };
     socket.connect(() => {
       console.log(socket);
     });
 
 
     socket.onAny((event) => {
-      console.log(`got event: ${event}`);
+      // console.log(`got event: ${event}`);
       // console.log(args)
     });
 
@@ -135,6 +146,8 @@ const Room = () => {
       // if user never texted the recipient, create a new signal session
       // using the signal store interface (local storage based)
       if (res.isExist) {
+        toast.info(`User ${res.username} found`);
+        setOpenDrawer(true);
         if (!chats[res.username]) {
           setChats({
             ...chats,
@@ -147,32 +160,51 @@ const Room = () => {
         }
         setCurrentRoom(username);
       } else {
+        toast.error(`User ${res.username} does not exist`);
         console.log(`user ${username} does not exist`);
       }
+    });
+
+    socket.on('search name', (res) => {
+      console.log(res);
+      setChats({
+        ...chats,
+        [res.username]: {
+          ...(chats[res.username]),
+          display_name: res.display_name
+        }
+      })
     })
+
     // console.log(socket);
-    socket.on('private message', async ({ content, from }) => {
-      console.log('received private message');
-      console.log(content);
-      console.log(from);
+    socket.on('private message', async (res) => {
+      const {
+        content,
+        from,
+        display_name,
+        type,
+        filename,
+      } = res
+      // console.log('received private message');
+      // console.log(content);
+      // console.log(from);
+      // console.log(`type: ${type}`);
+      // console.log(`filename: ${filename}`);
       const room = chats[from];
   
       const newMessage = {
-        sender: from
+        sender: display_name,
+        type: type,
+        filename: filename,
       };
       const address = new libsignal.SignalProtocolAddress(from, 1);
       const sessionCipher = new libsignal.SessionCipher(store, address);
-      // console.log(`room: ${room}`);
-      // decrypt message 
-      // session does not exist, establish a session first
-      const session = await store.loadSession(address.toString())
+      const session = await store.loadSession(address.toString());
       if (content.type === 3 && !session) {
         
         try {
           const plaintext = await sessionCipher.decryptPreKeyWhisperMessage(content.body, 'binary');
           newMessage.message = enc.decode(plaintext);
-          console.log('==plaintext==');
-          console.log(newMessage.message)
         } catch (error) {
           console.log(error);
         }
@@ -180,15 +212,11 @@ const Room = () => {
         try {
           const plaintext = await sessionCipher.decryptWhisperMessage(content.body, 'binary');
           newMessage.message = enc.decode(plaintext);
-          console.log('==plaintext==');
-          console.log(newMessage.message)
         } catch (error) {
           console.log(error);
           try {
             const plaintext = await sessionCipher.decryptPreKeyWhisperMessage(content.body, 'binary');
             newMessage.message = enc.decode(plaintext);
-            console.log('==plaintext==');
-            console.log(newMessage.message)
           } catch (error) {
             console.log(error);
           }
@@ -196,17 +224,20 @@ const Room = () => {
       }
       
       if (!room) {
+        socket.emit('search name', {
+          username: from
+        });
         chats[from] = {
           room_id: createRoomName(from, account),
           display_name: from,
           messages: []
         };
       }
-      console.log('==chats[from].messages before pushing==');
-      console.log(chats[from].messages);
+
+      if (currentRoom !== from) {
+        handleNotification(`New message from ${from}`);
+      }
       chats[from].messages.push(newMessage);
-      console.log('==chats[from].messages==');
-      console.log(chats[from].messages);
       setChats({
         ...chats,
         [from]: {
@@ -217,6 +248,20 @@ const Room = () => {
   
     });
   }, []);
+
+  useEffect(() => {
+    const chatBase = document.getElementById('chat-base');
+    if (chatBase) {
+      chatBase.scrollIntoView();
+    }
+  }, [chats]);
+
+  useEffect(() => {
+    if (fileBase64) {
+      console.log('fileBase64 loaded');
+      console.log(`filename: ${filename}`)
+    }
+  }, [fileBase64, filename]);
 
   const handleDrawerOpen = () => {
     setOpenDrawer(true);
@@ -235,13 +280,11 @@ const Room = () => {
     const session = await store.loadSession(address.toString());
     if (!keyBundles[room] && !session) {
       const keyBundle = await contract.getKeyBundle(room);
-      console.log('keyBundle');
-      console.log(keyBundle);
-
       console.log('==verify key bundle==');
       const isValid = await verify(keyBundle.userSign, room);
       if (!isValid) {
         console.log('==invalid key bundle==');
+        toast.error(`Invalid key bundle for user ${room}`);
         return
       }
       
@@ -250,7 +293,6 @@ const Room = () => {
         [room]: keyBundle
       });
       
-      // create new signal session
       const sessionBuilder = new libsignal.SessionBuilder(store, address);
 
       try {
@@ -285,31 +327,32 @@ const Room = () => {
             publicKey: preKeyPub,
           }
         });
-
         console.log(`signal session with ${room} built`);
       } catch (err) {
         console.log(err);
       }
-      console.log('fetching key bundle for this room');
-      // console.log(keyBundle);
     }
   }
 
   const handleSend = async () => {
     // console.log(socket.id);
     let content = message.trim();
+    if (fileBase64) {
+      content = fileBase64;
+      console.log(`about to send file: ${filename}`);
+    }
+
+    const address = new libsignal.SignalProtocolAddress(currentRoom, 1);
+    const sessionCipher = new libsignal.SessionCipher(store, address);
+    const session = await store.loadSession(address.toString());
+
     if (content !== '') {
-      // encrypt message using signal session, previously built when user first sending
-      // or receiving message from another end
-      // console.log('currentRoom session: ');
-      // console.log(sessions[currentRoom]);
       // change this to signalstore session
       if (sessions[currentRoom] === undefined) {
         console.log('session undefined');
         console.log('creating new session');
 
         const address = new libsignal.SignalProtocolAddress(currentRoom, 1);
-
         const sessionCipher = new libsignal.SessionCipher(store, address);
         setSessions({
           ...sessions,
@@ -318,11 +361,12 @@ const Room = () => {
         
         try {
           const ciphertext = await sessionCipher.encrypt(content);
-          console.log(ciphertext);
           socket.emit("private message", {
             content: ciphertext,
             to: currentRoom,
-            room_id: chats[currentRoom].room_id
+            room_id: chats[currentRoom].room_id,
+            type: filename ? 2 : 1, // 1 for text and 2 for file
+            filename: filename
           });
         } catch (err) {
           console.log(err);
@@ -331,13 +375,13 @@ const Room = () => {
       } else {
         try {
           const ciphertext = await sessions[currentRoom].encrypt(content);
-  
           socket.emit("private message", {
             content: ciphertext,
             to: currentRoom,
-            room_id: chats[currentRoom].room_id
+            room_id: chats[currentRoom].room_id,
+            type: filename ? 2 : 1,
+            filename: filename
           });
-
         } catch (err) {
           console.log(err);
         }
@@ -345,13 +389,12 @@ const Room = () => {
 
       const newMessage = {
         sender: 'me',
-        message: content
+        message: content,
+        type: filename ? 2 : 1,
+        filename: filename,
       }
-      console.log('==chats[currentRoom].messages before pushing==');
-      console.log(chats[currentRoom].messages);
+
       chats[currentRoom].messages.push(newMessage);
-      console.log('==chats[currentRoom].messages==');
-      console.log(chats[currentRoom].messages);
       setChats({
         ...chats,
         [currentRoom]: {
@@ -361,6 +404,28 @@ const Room = () => {
       });
     }
     setMessage('');
+    setFileBase64('');
+    setFilename('');
+  }
+
+  const handleFileChange = (event) => {
+    const newFile = event.target?.files?.[0];
+
+    if (newFile) {
+      setFilename(newFile.name);
+      const reader = new FileReader();
+      reader.readAsDataURL(newFile);
+      
+      reader.onload = () => {
+        console.log(reader.result);
+        setFileBase64(reader.result);
+      }
+
+      reader.onerror = (error) => {
+        toast.error("Failed to upload file");
+        console.log(error);
+      }
+    }
   }
 
   const handleSearch = () => {
@@ -373,6 +438,10 @@ const Room = () => {
     }
 
     setUsername('');
+  }
+
+  const handleNotification = (message) => {
+    toast.info(message);
   }
 
   return (
@@ -450,16 +519,16 @@ const Room = () => {
             </ListItem>
           ))}
         </List>
-        <Divider />
-        <List>
-        {['Fry', 'Groundskeeper Willie', 'Hermes', 'Iruka', 'Jon'].map((text, index) => (
-            <ListItem button key={index} onClick={() => { handleChangeRoom(text) }}>
-              <ListItemIcon><MailIcon /></ListItemIcon>
+        {/* <Divider /> */}
+        {/* <List> */}
+        {/* {['Fry', 'Groundskeeper Willie', 'Hermes', 'Iruka', 'Jon'].map((text, index) => ( */}
+            {/* <ListItem button key={index} onClick={() => { handleChangeRoom(text) }}> */}
+              {/* <ListItemIcon><MailIcon /></ListItemIcon> */}
               {/* <ListItemText textOverflow="ellipsis" primary={text} /> */}
-              <Typography>{text}</Typography>
-            </ListItem>
-          ))}
-        </List>
+              {/* <Typography>{text}</Typography> */}
+            {/* </ListItem> */}
+          {/* ))} */}
+        {/* </List> */}
       </Drawer>
       <main
         className={clsx(styles.content, {
@@ -467,33 +536,93 @@ const Room = () => {
         })}
       >
         <div className={styles.drawerHeader} />
-        <Grid>
+        <Grid
+          className={styles.chat}
+          item
+          container
+          direction="column"
+          alignItems="center"
+          justify="center"
+          xs={6}
+        >
           {
             currentRoom
             ? (
               <>
                 <ChatCard chats={chats[currentRoom].messages}/>
-                <TextField
-                  className={styles.form}
-                  name="Message"
-                  variant="outlined"
-                  fullWidth
-                  id="message"
-                  label="Write a message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSend();
-                    }
-                  }}
-                />
+                <Grid
+                  item
+                  container
+                  direction="row"
+                  // justify="center"
+                  alignItems="center"
+                >
+                  {
+                    filename
+                    ?
+                      <Tooltip title={`Delete ${filename}`}>
+                        <DeleteIcon 
+                          className={styles.uploadIcon}
+                          fontSize="large" 
+                          onClick={() => {
+                            setFileBase64('');
+                            setFilename('');
+                          }} />
+                      </Tooltip>
+                    : <>
+                        <label htmlFor="upload-file">
+                          <Tooltip title="Upload file">
+                            <AddIcon className={styles.uploadIcon} fontSize="large"/>
+                          </Tooltip>
+                        </label>
+                        <input
+                          id="upload-file"
+                          type="file"
+                          accept="*/*"
+                          hidden
+                          onChange={(e) => handleFileChange(e)}
+                        />
+                      </>
+                  }
+                  
+                  <TextField
+                    className={styles.form}
+                    name="Message"
+                    variant="outlined"
+                    // fullWidth
+                    id="message"
+                    label="Write a message..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSend();
+                      }
+                    }}
+                  />
+                  <Tooltip title="Send message">
+                    <SendIcon 
+                      className={styles.sendIcon} 
+                      fontSize="large"
+                      onClick={() => {handleSend()}}
+                    />
+                  </Tooltip>
+                </Grid>
             </>
             )
             : ''
           }
           
         </Grid>
+        <ToastContainer
+          position="bottom-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={true}
+          closeOnClick
+          pauseOnFocusLoss={true}
+          icon={false}
+        />
       </main>
     </div>
       : <NoAccess/>

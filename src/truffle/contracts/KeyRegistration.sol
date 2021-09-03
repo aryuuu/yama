@@ -6,6 +6,7 @@ contract KeyRegistration {
     //     string preKeyPub;
     //     bool isUsed;
     // }
+
     struct KeyBundle {
         string keyId;
         string userId;
@@ -35,8 +36,6 @@ contract KeyRegistration {
         string memory signature,
         string memory userSign
     ) public {
-        // uint256 keyBundleId = keyBundles.length;
-
         keyBundles[msg.sender] = KeyBundle({
             keyId: keyId,
             userId: userId,
@@ -48,7 +47,6 @@ contract KeyRegistration {
         });
 
         emit KeyBundleRegistered(msg.sender, keyId, userId);
-        // return keyBundleId;
     }
 
     function getKeyBundle(address owner)
@@ -65,6 +63,17 @@ contract KeyRegistration {
         )
     {
         KeyBundle storage keyBundle = keyBundles[owner];
+        // uint256 len = keyBundle.preKeys.length;
+        // PreKey memory preKey;
+        // for (uint256 i = 0; i < len; i++) {
+        //     if (!keyBundle.preKeys[i].isUsed) {
+        //         preKey = keyBundle.preKeys[i];
+        //         keyBundles[owner].preKeys[i].isUsed = true;
+        //         // keyBundle.preKeys[i].isUsed = true;
+        //         // keyBundles[owner] = keyBundle;
+        //         break;
+        //     }
+        // }
 
         keyId = keyBundle.keyId;
         userId = keyBundle.userId;
@@ -81,5 +90,13 @@ contract KeyRegistration {
             return false;
         }
         return true;
+        // PreKey[] memory preKeys = keyBundles[owner].preKeys;
+        // uint256 len = preKeys.length;
+        // for (uint256 i = 0; i < len; i++) {
+        //     if (!preKeys[i].isUsed) {
+        //         return true;
+        //     }
+        // }
+        // return false;
     }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router';
+import { useDispatch, useSelector } from 'react-redux';
 import { 
   Grid,
   Modal,
@@ -17,25 +18,28 @@ import SignalProtocolStore from '../../libs/signalProtocolStore';
 import contract from '../../libs/contract';
 import { sign } from '../../libs/web3';
 import { useStyles } from './style';
+import { ACTIONS as USER_ACTIONS } from '../../redux/reducers/userReducer';
 
 const cookie = new Cookies();
 
 const Home = () => {
   const wallet = useWallet();
   const history = useHistory();
+  const dispatch = useDispatch();
   const [loadingMessage, setLoadingMessage] = useState('Loading...')
   const [isRegistered, setIsRegistered] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [privateKey, setPrivateKey] = useState('');
   const [showLoading, setShowLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-
 
   const KeyHelper = window.libsignal.KeyHelper;
   const store = new SignalProtocolStore();
 
   const styles = useStyles();
+
+  const { display_name } = useSelector(state => state.userReducer);
 
   useEffect(() => {
     const account = cookie.get('account');
@@ -56,6 +60,7 @@ const Home = () => {
       console.log('user logged in, time to register key bundle');
       setShowLoading(false);
       setShowForm(true);
+      setLoadingMessage('Please input your wallet private key');
       // handleRegister();
     }
   }, [isLoggedIn]);
@@ -108,6 +113,11 @@ const Home = () => {
     console.log(`==account: ${address}==`);
     
     try {
+      const isRegisteredEth = await contract.isRegistered(address);
+      if (isRegisteredEth) {
+        setIsRegistered(true);
+        return;
+      }
       setLoadingMessage('Registering key bundle...');
       // check if id key exist
       let idKey = await store.getIdentityKeyPair();
@@ -128,8 +138,8 @@ const Home = () => {
       let signature;
       let signedKeyPair = {};
 
-      console.log('==signed key==');
-      console.log(signedPreKey);
+      // console.log('==signed key==');
+      // console.log(signedPreKey);
 
       if (!signedPreKey) {
         signedPreKey = await KeyHelper.generateSignedPreKey(idKey, 1);
@@ -138,8 +148,8 @@ const Home = () => {
 
         store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
         store.storeSignature(signedPreKey.keyId, signedPreKey.signature);
-        console.log('==signed key==');
-        console.log(signedPreKey);
+        // console.log('==signed key==');
+        // console.log(signedPreKey);
       } else {
         signature = await store.loadSignature(1);
         signedKeyPair = signedPreKey;
@@ -172,6 +182,13 @@ const Home = () => {
     setIsOpen(false);
   }
 
+  const handleChangeDisplayName = (value) => {
+    dispatch({
+      type: USER_ACTIONS.SET_DISPLAY_NAME,
+      payload: value
+    })
+  }
+
   return (
     <>
       <Grid
@@ -181,6 +198,39 @@ const Home = () => {
         alignItems="center"
       >
         <h1>Yama</h1>
+        <h3>Display name</h3>
+        <TextField
+          name="displayname"
+          variant="outlined"
+          required
+          // fullWidth
+          id="displayname"
+          label="Display Name"
+          autoFocus
+          value={display_name}
+          onChange={(e) => handleChangeDisplayName(e.target.value)}
+        />
+        <h3>Private key</h3>
+        <TextField
+          id="private-key"
+          label="private key"
+          variant="outlined"
+          type="password"
+          value={privateKey}
+          onChange={e => setPrivateKey(e.target.value)}
+          onKeyPress={e => {
+            if (e.key === 'Enter') {
+              handleRegister();
+            }
+          }}
+        />
+        <p>{loadingMessage}</p>
+        {
+          showLoading
+          ? <LinearProgress/>
+          : ''
+        }
+
         <Modal
           open={isOpen}
           onClose={handleClose}
@@ -188,7 +238,7 @@ const Home = () => {
           className={styles.modal}
         >
           <div className={styles.paper}>
-            <h2 id="modal-title">Please wait</h2>
+            {/* <h2 id="modal-title">Please wait</h2> */}
             <p id="modal-description">{loadingMessage}</p>
             {
               showForm

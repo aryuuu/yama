@@ -35,8 +35,15 @@ const getKeyBundle = async (ownerAddress) => {
   return contract.getKeyBundle(ownerAddress);
 }
 
+const isRegistered = async (ownerAddress) => {
+  const contract = await getContract();
+
+  return contract.isRegistered(ownerAddress);
+}
+
 module.exports = {
   getContract,
   createKeyBundle,
-  getKeyBundle
+  getKeyBundle,
+  isRegistered
 }
