@@ -35,15 +35,24 @@ const getKeyBundle = async (ownerAddress) => {
   return contract.getKeyBundle(ownerAddress);
 }
 
+const revokeKeyBundle = async (ownerAddress) => {
+  const contract = await getContract();
+
+  return contract.revokeKeyBundle(ownerAddress);
+}
+
 const isRegistered = async (ownerAddress) => {
   const contract = await getContract();
 
   return contract.isRegistered(ownerAddress);
 }
 
-module.exports = {
+const c = {
   getContract,
   createKeyBundle,
   getKeyBundle,
+  revokeKeyBundle,
   isRegistered
 }
+
+export default c;

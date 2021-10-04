@@ -247,4 +247,5 @@ class SignalProtocolStore {
 
 }
 
-module.exports = SignalProtocolStore;
+// module.exports = SignalProtocolStore;
+export default SignalProtocolStore;

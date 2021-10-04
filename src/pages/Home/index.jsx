@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { 
   Grid,
   Modal,
+  Button,
   LinearProgress,
 } from '@material-ui/core';
 import TextField from '@material-ui/core/TextField';
@@ -80,7 +81,7 @@ const Home = () => {
     console.log('==wallet status==');
     console.log(wallet.status);
 
-    if ((!account || account === 'null') && wallet.status === 'connected') {
+    if ((!account || account === 'null' || account !== wallet.account) && wallet.status === 'connected') {
       cookie.set('account', wallet.account);
       setIsLoggedIn(true);
       setLoadingMessage('Wallet logged in...');
@@ -91,7 +92,7 @@ const Home = () => {
     try {
       setLoadingMessage('Logging into ethereum account...');
       await wallet.connect('provided');
-      console.log(wallet.status)
+      // console.log(wallet.status)
       // cookie.set('account', wallet.account);
     } catch (error) {
       console.log('error connecting wallet');
@@ -104,7 +105,14 @@ const Home = () => {
     console.log('logout');
     wallet.reset();
     cookie.remove('account');
+    setIsLoggedIn(false);
   }
+
+  window.ethereum.on('accountsChanged', async (accounts) => {
+    console.log(accounts);
+    await handleLogout();
+    handleLogin();
+  })
 
   const handleRegister = async () => {
     setShowLoading(true);
@@ -114,6 +122,7 @@ const Home = () => {
     
     try {
       const isRegisteredEth = await contract.isRegistered(address);
+      console.log(`isRegisteredEth: ${isRegisteredEth}`);
       if (isRegisteredEth) {
         setIsRegistered(true);
         return;
@@ -213,6 +222,7 @@ const Home = () => {
         <h3>Private key</h3>
         <TextField
           id="private-key"
+          required
           label="private key"
           variant="outlined"
           type="password"
@@ -224,6 +234,16 @@ const Home = () => {
             }
           }}
         />
+        <Button
+          // fullWidth
+          className={styles.registerButton}
+          variant="contained"
+          color="primary"
+          onClick={() => handleRegister()}
+          disabled={display_name === '' || privateKey === ''}
+        >
+          Register
+        </Button>
         <p>{loadingMessage}</p>
         {
           showLoading

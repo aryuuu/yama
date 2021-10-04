@@ -92,8 +92,8 @@ SignalProtocolStore.prototype = {
 
   /* Returns a prekeypair object or undefined */
   loadPreKey: function(keyId) {
-    console.log('==signed preKey ID==');
-    console.log(keyId);
+    // console.log('==signed preKey ID==');
+    // console.log(keyId);
     var res = this.get('25519KeypreKey' + keyId);
     if (res !== undefined) {
       res = { pubKey: res.pubKey, privKey: res.privKey };
@@ -243,6 +243,8 @@ const genKeyBundle = async () => {
   console.log(ciphertext);
   console.log(ciphertext.body)
   console.log('typeof ciphertext ' + typeof ciphertext.body)
+  console.log('==storeA==');
+  console.log(storeA)
 
   console.log('==decrypting==');
   const sessionCipherB = new signal.SessionCipher(storeB, addressA);
@@ -251,15 +253,26 @@ const genKeyBundle = async () => {
   console.log(plaintext);
   const enc = new TextDecoder("utf-8");
   console.log(enc.decode(plaintext));
+  console.log('==storeB==');
+  console.log(storeB)
 
   const cipherreply = await sessionCipherB.encrypt('wasup bro');
   console.log('===reply===');
   console.log(cipherreply);
+  console.log('==storeB==');
+  console.log(storeB)
 
   console.log('===decrypting reply===');
   const plainreply = await sessionCipherA.decryptWhisperMessage(cipherreply.body, 'binary');
   console.log('===plain reply===');
   console.log(enc.decode(plainreply));
+  console.log('==storeA==');
+  console.log(storeA)
+
+  // console.log(`===decrypting B's own reply=== `);
+  // const plainreply2 = await sessionCipherB.decryptWhisperMessage(cipherreply.body, 'binary');
+  // console.log('===plaintext reply, decrypted by B===');
+  // console.log(enc.decode(plainreply2));
 
   const sessionsA = await storeA.loadSession(addressB.toString());
   // console.log(Object.keys(sessionsA));
