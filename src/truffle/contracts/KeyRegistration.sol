@@ -16,6 +16,7 @@ contract KeyRegistration {
         string signedPreKeyPub;
         string signature;
         string userSign;
+        // bool isUsed;
     }
 
     mapping(address => KeyBundle) public keyBundles;
@@ -82,6 +83,12 @@ contract KeyRegistration {
         signedPreKeyPub = keyBundle.signedPreKeyPub;
         signature = keyBundle.signature;
         userSign = keyBundle.userSign;
+        // isUsed = keyBundle.isUsed;
+    }
+
+    function revokeKeyBundle(address owner) public {
+        keyBundles[owner].keyId = "";
+        emit KeyBundleRevoked(owner);
     }
 
     function isRegistered(address owner) public view returns (bool) {

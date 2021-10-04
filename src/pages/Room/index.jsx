@@ -134,6 +134,10 @@ const Room = () => {
       console.log(socket);
     });
 
+    // console.log('===libsignal===');
+    // console.log(libsignal);
+    // console.log(libsignal.SignalProtocolAddress);
+
 
     socket.onAny((event) => {
       // console.log(`got event: ${event}`);
@@ -186,7 +190,7 @@ const Room = () => {
         filename,
       } = res
       // console.log('received private message');
-      // console.log(content);
+      console.log(content);
       // console.log(from);
       // console.log(`type: ${type}`);
       // console.log(`filename: ${filename}`);
@@ -201,8 +205,9 @@ const Room = () => {
       const sessionCipher = new libsignal.SessionCipher(store, address);
       const session = await store.loadSession(address.toString());
       if (content.type === 3 && !session) {
-        
         try {
+          await contract.revokeKeyBundle(account);
+          console.log('revoking key bundle');
           const plaintext = await sessionCipher.decryptPreKeyWhisperMessage(content.body, 'binary');
           newMessage.message = enc.decode(plaintext);
         } catch (error) {
@@ -280,6 +285,7 @@ const Room = () => {
     const session = await store.loadSession(address.toString());
     if (!keyBundles[room] && !session) {
       const keyBundle = await contract.getKeyBundle(room);
+      console.log(keyBundle);
       console.log('==verify key bundle==');
       const isValid = await verify(keyBundle.userSign, room);
       if (!isValid) {
